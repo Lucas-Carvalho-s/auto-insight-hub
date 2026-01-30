@@ -155,6 +155,22 @@
     }
   }
 
+  /* Pulse ring animation for loading */
+  .animate-pulse-ring {
+    animation: pulse-ring 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.5;
+    }
+  }
+
   /* Scan line animation */
   .scan-line {
     animation: scan 2s linear infinite;

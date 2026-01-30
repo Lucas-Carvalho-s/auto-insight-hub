@@ -1,13 +1,27 @@
-import { VehicleZone } from "@/data/diagnosticData";
+import { useState, useEffect } from "react";
+import { VehicleZone, DiagnosticResult } from "@/data/diagnosticData";
 import { cn } from "@/lib/utils";
+import PartPopup from "./PartPopup";
 
 interface VehicleViewerProps {
   highlightedZone: VehicleZone;
   onZoneClick?: (zone: VehicleZone) => void;
+  result?: DiagnosticResult | null;
   className?: string;
 }
 
-const VehicleViewer = ({ highlightedZone, onZoneClick, className }: VehicleViewerProps) => {
+const VehicleViewer = ({ highlightedZone, onZoneClick, result, className }: VehicleViewerProps) => {
+  const [showPartPopup, setShowPartPopup] = useState(false);
+
+  useEffect(() => {
+    if (result) {
+      const timer = setTimeout(() => setShowPartPopup(true), 500);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPartPopup(false);
+    }
+  }, [result]);
+
   const getZoneClasses = (zone: VehicleZone) => {
     const isHighlighted = highlightedZone === zone;
     return cn(
@@ -25,6 +39,15 @@ const VehicleViewer = ({ highlightedZone, onZoneClick, className }: VehicleViewe
       
       {/* Radial glow effect */}
       <div className="absolute inset-0 gradient-radial-cyan" />
+
+      {/* Part Detail Popup */}
+      {result && (
+        <PartPopup 
+          result={result}
+          isOpen={showPartPopup}
+          onClose={() => setShowPartPopup(false)}
+        />
+      )}
       
       {/* SVG Vehicle - X-Ray Style */}
       <svg
