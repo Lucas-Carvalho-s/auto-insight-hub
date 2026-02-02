@@ -170,9 +170,8 @@ function CarModel({
   const groupRef = useRef<THREE.Group>(null);
   const [modelError, setModelError] = useState<string | null>(null);
   
-  // Try loading a free car model from various sources
-  // Using a reliable public GLTF model
-  const modelUrl = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/low-poly-car/model.gltf";
+  // Using a stable .glb binary model (Porsche 911 Turbo)
+  const modelUrl = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/porsche-911-turbo/model.glb";
   
   let gltf: any = null;
   let loadError: Error | null = null;
@@ -446,7 +445,7 @@ function FallbackCar({ highlightZoneId }: { highlightZoneId: HighlightZoneId }) 
 }
 
 // Preload the model
-useGLTF.preload("https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/low-poly-car/model.gltf");
+useGLTF.preload("https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/porsche-911-turbo/model.glb");
 
 interface CarViewer3DProps {
   highlightedZone?: VehicleZone;
