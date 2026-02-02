@@ -4,6 +4,7 @@ import { AlertTriangle, AlertCircle, Info } from "lucide-react";
 import { DiagnosticResult } from "@/data/diagnosticData";
 import PartDetailCard from "./PartDetailCard";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
 
 interface DiagnosisResultProps {
   result: DiagnosticResult | null;
@@ -87,11 +88,13 @@ const DiagnosisResult = ({ result, className }: DiagnosisResultProps) => {
             </h3>
           </div>
 
-          {/* Technical Description */}
+          {/* Technical Description with Markdown */}
           <div className="bg-secondary/30 rounded-lg p-3 border border-border/30">
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {result.descricao}
-            </p>
+            <div className="prose prose-sm prose-invert max-w-none prose-p:text-muted-foreground prose-p:leading-relaxed prose-strong:text-foreground prose-em:text-primary/90 prose-ul:text-muted-foreground prose-ol:text-muted-foreground prose-li:marker:text-primary prose-headings:text-foreground prose-headings:font-semibold">
+              <ReactMarkdown>
+                {result.descricao}
+              </ReactMarkdown>
+            </div>
           </div>
 
           {/* Zone indicator */}
