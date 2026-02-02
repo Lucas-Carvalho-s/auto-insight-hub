@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Car, Activity, Bug } from "lucide-react";
+import { Car, Activity, Bug, Box, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SymptomInput from "./SymptomInput";
 import SmartVehicleViewer from "./SmartVehicleViewer";
+import CarViewer3D from "./CarViewer3D";
 import DiagnosisResult from "./DiagnosisResult";
 import { DiagnosticResult, VehicleZone, analyzeSymptopm } from "@/data/diagnosticData";
 import { CarView, HighlightZoneId, VisualContext } from "@/data/partImagesMap";
@@ -23,6 +24,7 @@ const DiagnosticDashboard = () => {
   const [visualContext, setVisualContext] = useState<VisualContext | null>(null);
   const [currentCarView, setCurrentCarView] = useState<CarView>('lateral');
   const [highlightZoneId, setHighlightZoneId] = useState<HighlightZoneId>(null);
+  const [use3DViewer, setUse3DViewer] = useState(true); // Toggle between 2D/3D
 
   const handleAnalyze = async (symptom: string) => {
     setIsProcessing(true);
@@ -222,6 +224,16 @@ const DiagnosticDashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              {/* 2D/3D Toggle */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setUse3DViewer(!use3DViewer)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                {use3DViewer ? <Layers className="w-4 h-4 mr-1" /> : <Box className="w-4 h-4 mr-1" />}
+                {use3DViewer ? '2D' : '3D'}
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -295,18 +307,30 @@ const DiagnosticDashboard = () => {
             />
           </div>
 
-          {/* Center Panel - Smart Vehicle Viewer */}
+          {/* Center Panel - Vehicle Viewer (3D or 2D) */}
           <div className="lg:col-span-5 order-1 lg:order-2">
             <div className="glass border-border/50 rounded-xl h-[400px] lg:h-full overflow-hidden">
-              <SmartVehicleViewer 
-                highlightedZone={highlightedZone}
-                highlightZoneId={highlightZoneId}
-                carView={currentCarView}
-                onZoneClick={handleZoneClick}
-                onZoneIdClick={handleZoneIdClick}
-                result={result}
-                visualContext={visualContext}
-              />
+              {use3DViewer ? (
+                <CarViewer3D 
+                  highlightedZone={highlightedZone}
+                  highlightZoneId={highlightZoneId}
+                  carView={currentCarView}
+                  onZoneClick={handleZoneClick}
+                  onZoneIdClick={handleZoneIdClick}
+                  result={result}
+                  visualContext={visualContext}
+                />
+              ) : (
+                <SmartVehicleViewer 
+                  highlightedZone={highlightedZone}
+                  highlightZoneId={highlightZoneId}
+                  carView={currentCarView}
+                  onZoneClick={handleZoneClick}
+                  onZoneIdClick={handleZoneIdClick}
+                  result={result}
+                  visualContext={visualContext}
+                />
+              )}
             </div>
           </div>
 
