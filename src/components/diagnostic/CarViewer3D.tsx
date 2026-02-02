@@ -6,7 +6,8 @@ import {
   useGLTF, 
   Html, 
   useProgress,
-  Center
+  Center,
+  Loader as DreiLoader
 } from "@react-three/drei";
 import * as THREE from "three";
 import { CarView, HighlightZoneId, VisualContext } from "@/data/partImagesMap";
@@ -170,8 +171,8 @@ function CarModel({
   const groupRef = useRef<THREE.Group>(null);
   const [modelError, setModelError] = useState<string | null>(null);
   
-  // Using a stable .glb binary model (Porsche 911 Turbo)
-  const modelUrl = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/porsche-911-turbo/model.glb";
+  // Using Lamborghini Urus model from pmndrs CDN
+  const modelUrl = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/lamborghini-urus/model.gltf";
   
   let gltf: any = null;
   let loadError: Error | null = null;
@@ -247,7 +248,7 @@ function CarModel({
       <Center>
         <primitive 
           object={gltf.scene.clone()} 
-          scale={1.5}
+          scale={0.01}
           position={[0, 0, 0]}
         />
       </Center>
@@ -445,7 +446,7 @@ function FallbackCar({ highlightZoneId }: { highlightZoneId: HighlightZoneId }) 
 }
 
 // Preload the model
-useGLTF.preload("https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/porsche-911-turbo/model.glb");
+useGLTF.preload("https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/lamborghini-urus/model.gltf");
 
 interface CarViewer3DProps {
   highlightedZone?: VehicleZone;
@@ -512,9 +513,9 @@ const CarViewer3D = ({
 
           {/* Stage provides studio lighting and environment */}
           <Stage
-            intensity={1.5}
+            intensity={0.6}
             environment="city"
-            shadows={{ type: 'contact', opacity: 0.4, blur: 2 }}
+            shadows={{ type: 'contact', opacity: 0.5, blur: 2 }}
             adjustCamera={false}
           >
             <CarModel 
@@ -551,6 +552,9 @@ const CarViewer3D = ({
           />
         </Suspense>
       </Canvas>
+
+      {/* External loader bar from drei */}
+      <DreiLoader />
 
       {/* Instructions overlay */}
       <div className="absolute bottom-4 left-4 z-10">
