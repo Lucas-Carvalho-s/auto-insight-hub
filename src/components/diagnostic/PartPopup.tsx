@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DiagnosticResult } from "@/data/diagnosticData";
 import { getPartImage, VisualContext } from "@/data/partImagesMap";
+import { getPartImageUrl, hasPartImage, FALLBACK_PART_IMAGE } from "@/data/partImageRegistry";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface PartPopupProps {
   result: DiagnosticResult;
@@ -18,15 +19,29 @@ interface PartPopupProps {
 const PartPopup = ({ result, onClose, isOpen, visualContext }: PartPopupProps) => {
   const [imageError, setImageError] = useState(false);
 
+  // Reset image error when part changes
+  useEffect(() => {
+    setImageError(false);
+  }, [visualContext?.specific_part_name, result.peca?.nome]);
+
   if (!isOpen || !result) return null;
 
-  // Get the part image from the mapping
-  const partImageInfo = getPartImage(
-    visualContext?.specific_part_name || result.peca?.nome
-  );
+  // Get the part name from visual context or result
+  const partName = visualContext?.specific_part_name || result.peca?.nome;
+  
+  // Priority: 1) New registry, 2) Old mapping, 3) Fallback
+  const registryImageUrl = getPartImageUrl(partName);
+  const hasRegistryImage = hasPartImage(partName);
+  
+  // Get legacy mapping info for category display
+  const legacyPartInfo = getPartImage(partName);
+  
+  // Use registry if available, otherwise fall back to legacy
+  const imageUrl = hasRegistryImage ? registryImageUrl : legacyPartInfo.url;
+  const category = legacyPartInfo.category;
 
-  // Fallback SVG images for common parts
-  const fallbackImages: Record<string, string> = {
+  // SVG fallback images for when network images fail
+  const svgFallbacks: Record<string, string> = {
     freios: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%231e293b' stroke='%2306b6d4' stroke-width='2'/%3E%3Ccircle cx='50' cy='50' r='35' fill='none' stroke='%2306b6d4' stroke-width='3'/%3E%3Ccircle cx='50' cy='50' r='20' fill='%230f172a' stroke='%2306b6d4' stroke-width='2'/%3E%3Crect x='15' y='45' width='70' height='10' rx='2' fill='%23f59e0b' opacity='0.8'/%3E%3Ctext x='50' y='90' text-anchor='middle' fill='%2394a3b8' font-size='8'%3EPastilha de Freio%3C/text%3E%3C/svg%3E",
     motor: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='10' y='20' width='80' height='60' rx='5' fill='%231e293b' stroke='%2306b6d4' stroke-width='2'/%3E%3Crect x='20' y='30' width='25' height='20' rx='2' fill='%230f172a' stroke='%2306b6d4'/%3E%3Crect x='55' y='30' width='25' height='20' rx='2' fill='%230f172a' stroke='%2306b6d4'/%3E%3Ccircle cx='32' cy='65' r='8' fill='%23f59e0b' opacity='0.8'/%3E%3Ccircle cx='68' cy='65' r='8' fill='%23f59e0b' opacity='0.8'/%3E%3Cpath d='M50 10 L50 20' stroke='%2306b6d4' stroke-width='3'/%3E%3Ctext x='50' y='95' text-anchor='middle' fill='%2394a3b8' font-size='8'%3EMotor%3C/text%3E%3C/svg%3E",
     suspensao: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M20 20 L50 80 L80 20' fill='none' stroke='%2306b6d4' stroke-width='3'/%3E%3Ccircle cx='20' cy='20' r='8' fill='%231e293b' stroke='%23f59e0b' stroke-width='2'/%3E%3Ccircle cx='80' cy='20' r='8' fill='%231e293b' stroke='%23f59e0b' stroke-width='2'/%3E%3Ccircle cx='50' cy='80' r='10' fill='%231e293b' stroke='%2306b6d4' stroke-width='2'/%3E%3Cpath d='M35 45 Q50 35 65 45' fill='none' stroke='%2306b6d4' stroke-width='2'/%3E%3Ctext x='50' y='98' text-anchor='middle' fill='%2394a3b8' font-size='8'%3ESuspensão%3C/text%3E%3C/svg%3E",
@@ -34,15 +49,15 @@ const PartPopup = ({ result, onClose, isOpen, visualContext }: PartPopupProps) =
     generic: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%231e293b' stroke='%2306b6d4' stroke-width='2'/%3E%3Cpath d='M50 25 L50 50 L70 60' fill='none' stroke='%2306b6d4' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='50' r='5' fill='%23f59e0b'/%3E%3Ctext x='50' y='90' text-anchor='middle' fill='%2394a3b8' font-size='8'%3EPeça%3C/text%3E%3C/svg%3E"
   };
 
-  const getFallbackImage = () => {
-    if (result.zona === 'freios') return fallbackImages.freios;
-    if (result.zona === 'motor') return fallbackImages.motor;
-    if (result.zona?.includes('suspensao')) return fallbackImages.suspensao;
-    if (result.zona === 'escapamento') return fallbackImages.escapamento;
-    return fallbackImages.generic;
+  const getSvgFallback = () => {
+    if (result.zona === 'freios') return svgFallbacks.freios;
+    if (result.zona === 'motor') return svgFallbacks.motor;
+    if (result.zona?.includes('suspensao')) return svgFallbacks.suspensao;
+    if (result.zona === 'escapamento') return svgFallbacks.escapamento;
+    return svgFallbacks.generic;
   };
 
-  const displayImage = imageError ? getFallbackImage() : partImageInfo.url;
+  const displayImage = imageError ? getSvgFallback() : imageUrl;
 
   return (
     <AnimatePresence>
@@ -86,7 +101,7 @@ const PartPopup = ({ result, onClose, isOpen, visualContext }: PartPopupProps) =
               ) : (
                 <img 
                   src={displayImage} 
-                  alt={partImageInfo.alt || result.peca?.nome || 'Peça'}
+                  alt={legacyPartInfo.alt || result.peca?.nome || 'Peça'}
                   className="w-full h-full object-cover"
                   onError={() => setImageError(true)}
                 />
@@ -109,7 +124,7 @@ const PartPopup = ({ result, onClose, isOpen, visualContext }: PartPopupProps) =
               {/* Category badge */}
               <div className="absolute bottom-2 left-2">
                 <Badge variant="secondary" className="text-[10px] bg-secondary/80">
-                  {partImageInfo.category}
+                  {category}
                 </Badge>
               </div>
             </motion.div>
