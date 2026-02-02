@@ -1,15 +1,94 @@
 # Documento de Checklist do Projeto
 
 ## Requisitos
-**Ferramenta utilizada:**
+**Ferramenta utilizada: Gemini 3**
 ### Prompt
 ```
+Atue como um Product Owner e Arquiteto de Soluções Full Stack. Sua tarefa é redigir um documento de Requisitos Técnicos e de Design extremamente detalhado para uma aplicação web inovadora chamada 'AutoDiagnostic AI'.
+O objetivo é que esse documento sirva de instrução direta para um desenvolvedor sênior executar o projeto sem precisar de perguntas adicionais. Estruture os requisitos nos seguintes tópicos:
+1. Visão Geral e Persona:
+
+Defina o app como uma ferramenta de diagnóstico automotivo via IA para técnicos e usuários leigos.
+Estabeleça uma identidade visual 'Cyberpunk Clean' (Dark Mode, Slate-950, tons neon).
+2. Arquitetura de Interface (Dashboard de Tela Única):
+
+Descreva a divisão da tela em três colunas:
+Painel de Entrada: Refinamento de prompt natural para estruturado (JSON).
+Visualizador Central: Um modelo de carro interativo (SVG ou 3D) com zonas de impacto visual (Motor, Freios, etc.).
+Painel de Resultados: Diagnóstico detalhado, imagem da peça e passos técnicos.
+3. Requisitos Funcionais e UX:
+
+Detalhe um 'fluxo de interação transparente' com uma Stepper animada (Recebimento -> Refinamento -> RAG -> Diagnóstico).
+Especifique uma 'Lógica de Simulação' (Mock Data) baseada em palavras-chave para demonstração imediata.
+4. Stack Técnica e Segurança:
+
+Exija o uso de React, Tailwind CSS, Shadcn UI e Supabase.
+Defina uma arquitetura segura: o frontend nunca acessa a OpenAI diretamente. Toda a lógica deve passar por Supabase Edge Functions.
+Detalhe a integração com a OpenAI Assistants API, mencionando o uso de Threads e IDs de Assistente via variáveis de ambiente.
+5. Critérios de Aceite e Ajustes Finais:
+
+Inclua a necessidade de tratamentos de erro robustos (Toasts), logs de depuração no console e um design totalmente responsivo.
+Ao final, o documento deve ser apresentado de forma que qualquer IA de codificação consiga interpretá-lo como um roteiro de implementação 'pixel-perfect' e funcional.
 ```
 ### Output
+1. Visão Geral e PersonaO AutoDiagnostic AI é uma plataforma disruptiva que preenche a lacuna entre o usuário leigo e o técnico especializado. Através de Processamento de Linguagem Natural (NLP) e RAG (Retrieval-Augmented Generation), o sistema converte descrições vagas de problemas em diagnósticos técnicos precisos.  
+- Identidade Visual (Cyberpunk Clean):
+   - Background: Slate-950 (#020617).
+   - Cores de Acento: Cyan-500 (Neon), Violet-600 (Primária), Rose-500 (Alertas).
+   - Estética: Bordas finas, glassmorphism (backdrop-blur), tipografia mono para dados técnicos (JetBrains Mono).
 
+2. Arquitetura de Interface (Single Page Dashboard)O layout deve ocupar 100vh, sem scroll vertical na estrutura principal, utilizando um grid de três colunas (Proporção: 1:2:1).
+Esquerda (Input) - PromptPanel - Input de texto livre com botão de submissão e seletor de marca/modelo; Central (Visual)CarInteractiveModel - Visualizador SVG interativo com lógica de glow nas peças afetadas; Direita (Output) - DiagnosticResults - Card de diagnóstico, imagem da peça via IA/Mock e checklist de reparo.
+
+3. Requisitos Funcionais e UX
+
+Fluxo de Interação Transparente (Stepper)O usuário deve visualizar o "pensamento" da máquina através de um Stepper animado no topo do painel central:
+   1. Recebimento: Validação do input.
+   2. Refinamento: Conversão de "barulho no motor" para "Anomalia Acústica em Bloco de Cilindros".
+   3. RAG / Pesquisa: Busca em base de dados (Simulado ou Real).
+   4. Diagnóstico: Renderização final.
+
+Lógica de Simulação (Mock Mode) 
+Para demonstração, o frontend deve interceptar palavras-chave caso o modo VITE_MOCK_MODE=true:
+* "Freio" -> Ativa zona de freios no SVG -> Retorna erro de pastilha gasta.
+* "Fumaça" -> Ativa zona de motor -> Retorna falha na junta do cabeçote.
+
+4. Stack Técnica e Segurança
+
+Core Stack
+* Framework: React 18+ (Vite) com TypeScript.
+* Estilização: Tailwind CSS + Shadcn UI (Componentes: Card, Button, ScrollArea, Toast).
+* Backend/Auth: Supabase.
+
+Arquitetura de Segurança e Fluxo de Dados
+Regra de Ouro: O frontend jamais armazena ou chama a OPENAI_API_KEY
+1. Frontend: Envia prompt + context para uma Supabase 
+2. Edge Function.Edge Function (Deno):
+   * Valida a sessão do usuário.
+   * Instancia o OpenAI Assistant usando assistant_id e gerencia a thread_id no banco de dados.
+   * Consome a API da OpenAI e retorna o JSON estruturado.
+
+3. JSON Schema Esperado:
+   ```JSON
+   {
+   "zone_id": "engine" | "brakes" | "suspension" | "electrical",
+   "confidence": 0.95,
+   "technical_term": "String",
+   "explanation": "String (Markdown)",
+   "parts_to_replace": ["String"],
+   "estimated_cost": "String"
+   }
+   ```
+
+4. Critérios de Aceite (DoD)
+* Pixel-Perfect: O layout deve respeitar os tokens do Tailwind e não apresentar desalinhamentos em 1920x1080.
+* Responsividade: Em telas < 1024px, as colunas laterais tornam-se abas (Tabs) inferiores.
+* Tratamento de Erros: Qualquer falha na Edge Function deve disparar um Sonner Toast com descrição amigável.
+* Performance: O modelo SVG central deve ser otimizado para não causar re-renders desnecessários.
+* Logs: O console deve exibir de forma clara (em cores via CSS log) o estado atual da Thread do Assistente.
 
 ## Prototipação
-**Ferramenta utilizada**: Lovable.com
+**Ferramenta utilizada**: Lovable.dev
 ### Prompt
 ```
 Como um Engenheiro de Software Sênior e UI/UX Designer. Crie uma aplicação web completa ("Diagnóstico Automotivo Inteligente") usando React, Tailwind CSS e Shadcn UI.
@@ -78,6 +157,7 @@ REQUISITOS FUNCIONAIS FINAIS:
      - "Explicação Técnica": Texto gerado pela IA.
 
      - "Procedimento Sugerido": Lista de passos (ex: 1. Verificar fluido, 2. Medir espessura).
+
 
 4. LÓGICA DE SIMULAÇÃO (Para a Demo funcionar sem Backend agora):
 
@@ -150,19 +230,34 @@ O objetivo é: O usuário digita o sintoma -> Clica em Diagnosticar -> Aguarda (
 
 
 ## Arquitetura
-**Ferramenta utilizada**:
+**Ferramenta utilizada**: Gemini 3 + Mermaid
 ### Prompt
 ```
-```
-### Output
+Atue como um arquiteto de soluções e gere um código Mermaid (graph TD) para um sistema de diagnóstico técnico baseado em IA. O diagrama deve seguir estes requisitos:
 
-## Código
-**OBS: NOSSO CÓDIGO É BASICAMENTE O QUE TA FEITO NA SEÇÃO PROTOTIPAÇÃO. O QUE DOCUMENTAREMOS AQUI? AJUSTES FEITOS NO GITHUB / COPILOT?**
-**Ferramenta utilizada**:
-### Prompt
-```
+1. Fluxo de Dados: O Usuário envia sintomas para um Frontend (React/Lovable). O Frontend repassa para um Backend (Middleware), que por sua vez se comunica com a OpenAI Agent Builder/Assistants API.
+
+2. Encapsulamento da OpenAI: Crie um subgraph chamado 'OpenAI Cloud' que contenha o AgentAPI. Dentro deste, crie outro subgráfico de 'Processamento Interno' mostrando a conexão entre a Vector Store (Manuais) e o LLM (GPT-4o) com o AgentAPI.
+
+3. Retorno: O fluxo de resposta deve voltar do AgentAPI para o Backend, depois para o Frontend (como resposta estruturada) e finalmente exibir o diagnóstico e gravidade para o Usuário.
+
+Estilização:
+
+- Frontend: fundo rosa (#f9f).
+
+- Backend: fundo azul claro (#bbf).
+
+- AgentAPI: fundo verde (#41b883) com texto branco.
+
+- OpenAI Cloud: fundo cinza claro e borda tracejada.
 ```
 ### Output
+![alt text](arquitetura.png)
+## Código
+**Ferramenta utilizada**: Lovable.dev
+O código foi gerado e modificado pela ferramenta _lovable_.
+### Output
+O link de acesso ao repositório do projeto é: https://github.com/izaacmoraes/auto-insight-hub/tree/main
 
 ## Testes
 **Ferramenta utilizada**:
