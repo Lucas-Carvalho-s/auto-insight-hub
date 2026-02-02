@@ -1,49 +1,83 @@
-import { useRef, useEffect, useState, Suspense } from "react";
+import { useRef, useEffect, useState, Suspense, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Html, useProgress } from "@react-three/drei";
+import { 
+  OrbitControls, 
+  Stage, 
+  useGLTF, 
+  Html, 
+  useProgress,
+  Center
+} from "@react-three/drei";
 import * as THREE from "three";
 import { CarView, HighlightZoneId, VisualContext } from "@/data/partImagesMap";
 import { DiagnosticResult, VehicleZone } from "@/data/diagnosticData";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 // Camera positions for different views
-const CAMERA_POSITIONS: Record<string, { position: [number, number, number]; target: [number, number, number] }> = {
-  lateral: { position: [4, 1.5, 0], target: [0, 0.5, 0] },
-  motor: { position: [0, 3, 2], target: [0, 0.5, 0] },
-  inferior: { position: [0, -2, 3], target: [0, 0, 0] },
-  engine_bay: { position: [0, 3, 1.5], target: [0, 0.8, 0] },
-  undercarriage: { position: [0, -1.5, 3], target: [0, 0, 0] },
-  exterior_side: { position: [4, 1.5, 0], target: [0, 0.5, 0] },
-  interior_dashboard: { position: [0.5, 1.2, 0.3], target: [0, 1, -0.5] },
-  frontal: { position: [0, 1.5, 4], target: [0, 0.5, 0] },
-  traseira: { position: [0, 1.5, -4], target: [0, 0.5, 0] },
+const CAMERA_POSITIONS: Record<string, { position: THREE.Vector3; target: THREE.Vector3 }> = {
+  lateral: { 
+    position: new THREE.Vector3(5, 2, 0), 
+    target: new THREE.Vector3(0, 0.5, 0) 
+  },
+  motor: { 
+    position: new THREE.Vector3(2, 3, 2), 
+    target: new THREE.Vector3(0, 0.8, 1) 
+  },
+  inferior: { 
+    position: new THREE.Vector3(3, -1, 3), 
+    target: new THREE.Vector3(0, 0, 0) 
+  },
+  engine_bay: { 
+    position: new THREE.Vector3(1.5, 2.5, 2), 
+    target: new THREE.Vector3(0, 0.5, 1) 
+  },
+  undercarriage: { 
+    position: new THREE.Vector3(3, 0.5, 3), 
+    target: new THREE.Vector3(0, 0, 0) 
+  },
+  exterior_side: { 
+    position: new THREE.Vector3(5, 2, 0), 
+    target: new THREE.Vector3(0, 0.5, 0) 
+  },
+  interior_dashboard: { 
+    position: new THREE.Vector3(0.3, 1.5, 0.5), 
+    target: new THREE.Vector3(0, 1, -0.5) 
+  },
+  frontal: { 
+    position: new THREE.Vector3(0, 2, 5), 
+    target: new THREE.Vector3(0, 0.5, 0) 
+  },
+  traseira: { 
+    position: new THREE.Vector3(0, 2, -5), 
+    target: new THREE.Vector3(0, 0.5, 0) 
+  },
 };
 
-// Zone mesh mappings - which parts to highlight
-const ZONE_MESH_MAPPING: Record<string, string[]> = {
-  zone_engine_block: ['engine', 'motor', 'block'],
-  zone_radiator: ['radiator', 'radiador', 'cooling'],
+// Zone mesh name patterns for highlighting
+const ZONE_MESH_PATTERNS: Record<string, string[]> = {
+  zone_engine_block: ['engine', 'motor', 'block', 'cylinder'],
+  zone_radiator: ['radiator', 'radiador', 'cooling', 'grille'],
   zone_battery: ['battery', 'bateria'],
   zone_alternator: ['alternator', 'alternador'],
-  zone_air_filter: ['air_filter', 'filtro'],
-  zone_spark_plugs: ['spark', 'vela'],
-  zone_wheel_front_left: ['wheel_fl', 'wheel_front_left', 'roda_de'],
-  zone_wheel_front_right: ['wheel_fr', 'wheel_front_right', 'roda_dd'],
-  zone_wheel_rear_left: ['wheel_rl', 'wheel_rear_left', 'roda_te'],
-  zone_wheel_rear_right: ['wheel_rr', 'wheel_rear_right', 'roda_td'],
-  zone_brake_front: ['brake_front', 'freio_d', 'disco_d'],
-  zone_brake_rear: ['brake_rear', 'freio_t', 'disco_t'],
-  zone_suspension_front: ['suspension_f', 'suspensao_d', 'amortecedor_d'],
-  zone_suspension_rear: ['suspension_r', 'suspensao_t', 'amortecedor_t'],
-  zone_exhaust: ['exhaust', 'escapamento'],
-  zone_catalytic: ['catalytic', 'catalisador'],
-  zone_muffler: ['muffler', 'silenciador'],
-  zone_oil_pan: ['oil_pan', 'carter'],
-  zone_transmission: ['transmission', 'cambio', 'gearbox'],
-  zone_fuel_tank: ['fuel_tank', 'tanque'],
-  zone_headlight: ['headlight', 'farol_d'],
-  zone_taillight: ['taillight', 'lanterna'],
+  zone_air_filter: ['air_filter', 'filtro', 'intake'],
+  zone_spark_plugs: ['spark', 'vela', 'plug'],
+  zone_wheel_front_left: ['wheel_fl', 'wheel_front_left', 'tire_fl', 'rim_fl'],
+  zone_wheel_front_right: ['wheel_fr', 'wheel_front_right', 'tire_fr', 'rim_fr'],
+  zone_wheel_rear_left: ['wheel_rl', 'wheel_rear_left', 'tire_rl', 'rim_rl'],
+  zone_wheel_rear_right: ['wheel_rr', 'wheel_rear_right', 'tire_rr', 'rim_rr'],
+  zone_brake_front: ['brake', 'caliper', 'disc', 'rotor'],
+  zone_brake_rear: ['brake_rear', 'caliper_r'],
+  zone_suspension_front: ['suspension', 'spring', 'shock', 'strut'],
+  zone_suspension_rear: ['suspension_r', 'spring_r', 'shock_r'],
+  zone_exhaust: ['exhaust', 'pipe', 'muffler'],
+  zone_catalytic: ['catalytic', 'converter', 'cat'],
+  zone_muffler: ['muffler', 'silencer'],
+  zone_oil_pan: ['oil', 'pan', 'sump'],
+  zone_transmission: ['transmission', 'gearbox', 'trans'],
+  zone_fuel_tank: ['fuel', 'tank', 'gas'],
+  zone_headlight: ['headlight', 'head_light', 'front_light', 'lamp_f'],
+  zone_taillight: ['taillight', 'tail_light', 'rear_light', 'lamp_r'],
 };
 
 // Loading component
@@ -51,56 +85,195 @@ function Loader() {
   const { progress } = useProgress();
   return (
     <Html center>
-      <div className="flex flex-col items-center gap-2 text-primary">
-        <Loader2 className="w-8 h-8 animate-spin" />
-        <span className="text-xs">{progress.toFixed(0)}%</span>
+      <div className="flex flex-col items-center gap-3 p-4 bg-background/80 backdrop-blur-sm rounded-lg border border-border">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+        <div className="text-center">
+          <p className="text-sm font-medium text-foreground">Carregando modelo 3D</p>
+          <p className="text-xs text-muted-foreground">{progress.toFixed(0)}%</p>
+        </div>
+        <div className="w-32 h-1.5 bg-secondary rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-primary transition-all duration-300" 
+            style={{ width: `${progress}%` }}
+          />
+        </div>
       </div>
     </Html>
   );
 }
 
-// Animated camera controller
-function CameraController({ targetView }: { targetView: string }) {
+// Error fallback component
+function ModelError({ error }: { error: string }) {
+  return (
+    <Html center>
+      <div className="flex flex-col items-center gap-3 p-4 bg-destructive/10 backdrop-blur-sm rounded-lg border border-destructive/30 max-w-xs">
+        <AlertCircle className="w-10 h-10 text-destructive" />
+        <div className="text-center">
+          <p className="text-sm font-medium text-foreground">Erro ao carregar modelo</p>
+          <p className="text-xs text-muted-foreground mt-1">{error}</p>
+        </div>
+      </div>
+    </Html>
+  );
+}
+
+// Animated camera controller with smooth transitions
+function CameraController({ 
+  targetView, 
+  controlsRef 
+}: { 
+  targetView: string;
+  controlsRef: React.RefObject<any>;
+}) {
   const { camera } = useThree();
-  const targetPosition = useRef(new THREE.Vector3());
-  const targetLookAt = useRef(new THREE.Vector3());
-  const currentLookAt = useRef(new THREE.Vector3(0, 0.5, 0));
+  const targetPosition = useRef(new THREE.Vector3(5, 2, 0));
+  const targetLookAt = useRef(new THREE.Vector3(0, 0.5, 0));
+  const isAnimating = useRef(false);
 
   useEffect(() => {
     const viewConfig = CAMERA_POSITIONS[targetView] || CAMERA_POSITIONS.lateral;
-    targetPosition.current.set(...viewConfig.position);
-    targetLookAt.current.set(...viewConfig.target);
+    targetPosition.current.copy(viewConfig.position);
+    targetLookAt.current.copy(viewConfig.target);
+    isAnimating.current = true;
   }, [targetView]);
 
   useFrame(() => {
-    // Smooth camera movement
-    camera.position.lerp(targetPosition.current, 0.05);
-    currentLookAt.current.lerp(targetLookAt.current, 0.05);
-    camera.lookAt(currentLookAt.current);
+    if (isAnimating.current) {
+      // Smooth camera position interpolation
+      camera.position.lerp(targetPosition.current, 0.03);
+      
+      // Update OrbitControls target
+      if (controlsRef.current) {
+        controlsRef.current.target.lerp(targetLookAt.current, 0.03);
+        controlsRef.current.update();
+      }
+
+      // Check if animation is complete
+      const distanceToTarget = camera.position.distanceTo(targetPosition.current);
+      if (distanceToTarget < 0.01) {
+        isAnimating.current = false;
+      }
+    }
   });
 
   return null;
 }
 
-// Low-poly placeholder car model
-function PlaceholderCar({ highlightZoneId }: { highlightZoneId: HighlightZoneId }) {
+// Car model component with GLTF loading
+function CarModel({ 
+  highlightZoneId,
+  onModelLoaded
+}: { 
+  highlightZoneId: HighlightZoneId;
+  onModelLoaded?: (nodes: Record<string, any>) => void;
+}) {
   const groupRef = useRef<THREE.Group>(null);
-  const [highlightedMeshes, setHighlightedMeshes] = useState<string[]>([]);
+  const [modelError, setModelError] = useState<string | null>(null);
+  
+  // Try loading a free car model from various sources
+  // Using a reliable public GLTF model
+  const modelUrl = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/low-poly-car/model.gltf";
+  
+  let gltf: any = null;
+  let loadError: Error | null = null;
+  
+  try {
+    gltf = useGLTF(modelUrl);
+  } catch (e) {
+    loadError = e as Error;
+  }
 
-  // Determine which meshes to highlight based on zone ID
+  // Log model nodes for debugging mesh names
   useEffect(() => {
-    if (highlightZoneId && ZONE_MESH_MAPPING[highlightZoneId]) {
-      setHighlightedMeshes(ZONE_MESH_MAPPING[highlightZoneId]);
-    } else {
-      setHighlightedMeshes([]);
+    if (gltf?.nodes) {
+      console.log('[CarViewer3D] Modelo carregado. Nodes disponíveis:', Object.keys(gltf.nodes));
+      console.log('[CarViewer3D] Estrutura completa do modelo:', gltf.nodes);
+      onModelLoaded?.(gltf.nodes);
     }
-  }, [highlightZoneId]);
-
-  const isHighlighted = (meshName: string) => {
-    return highlightedMeshes.some(h => meshName.toLowerCase().includes(h.toLowerCase()));
-  };
+  }, [gltf, onModelLoaded]);
 
   // Create highlight material
+  const highlightMaterial = useMemo(() => new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0xff2222),
+    emissive: new THREE.Color(0xff0000),
+    emissiveIntensity: 1.2,
+    metalness: 0.4,
+    roughness: 0.3,
+  }), []);
+
+  // Check if a mesh should be highlighted
+  const shouldHighlight = (meshName: string): boolean => {
+    if (!highlightZoneId || !ZONE_MESH_PATTERNS[highlightZoneId]) return false;
+    
+    const patterns = ZONE_MESH_PATTERNS[highlightZoneId];
+    const lowerName = meshName.toLowerCase();
+    
+    return patterns.some(pattern => lowerName.includes(pattern.toLowerCase()));
+  };
+
+  // Apply highlight to matching meshes
+  useEffect(() => {
+    if (!gltf?.scene || !highlightZoneId) return;
+
+    const originalMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+
+    gltf.scene.traverse((child: THREE.Object3D) => {
+      if (child instanceof THREE.Mesh) {
+        if (shouldHighlight(child.name)) {
+          originalMaterials.set(child, child.material);
+          child.material = highlightMaterial;
+          console.log('[CarViewer3D] Destacando mesh:', child.name);
+        }
+      }
+    });
+
+    // Cleanup: restore original materials
+    return () => {
+      originalMaterials.forEach((material, mesh) => {
+        mesh.material = material;
+      });
+    };
+  }, [gltf, highlightZoneId, highlightMaterial]);
+
+  if (loadError || modelError) {
+    return <FallbackCar highlightZoneId={highlightZoneId} />;
+  }
+
+  if (!gltf) {
+    return <FallbackCar highlightZoneId={highlightZoneId} />;
+  }
+
+  return (
+    <group ref={groupRef}>
+      <Center>
+        <primitive 
+          object={gltf.scene.clone()} 
+          scale={1.5}
+          position={[0, 0, 0]}
+        />
+      </Center>
+    </group>
+  );
+}
+
+// Fallback low-poly car if GLTF fails to load
+function FallbackCar({ highlightZoneId }: { highlightZoneId: HighlightZoneId }) {
+  const groupRef = useRef<THREE.Group>(null);
+
+  // Determine which parts to highlight
+  const isHighlighted = (partType: string): boolean => {
+    if (!highlightZoneId) return false;
+    const zoneKey = highlightZoneId.toLowerCase();
+    return zoneKey.includes(partType);
+  };
+
+  // Materials
+  const bodyMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0x1a1a2e),
+    metalness: 0.9,
+    roughness: 0.1,
+  });
+
   const highlightMaterial = new THREE.MeshStandardMaterial({
     color: new THREE.Color(0xff3333),
     emissive: new THREE.Color(0xff0000),
@@ -109,235 +282,171 @@ function PlaceholderCar({ highlightZoneId }: { highlightZoneId: HighlightZoneId 
     roughness: 0.4,
   });
 
-  const bodyMaterial = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0x1e293b),
+  const wheelMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0x0a0a0a),
+    metalness: 0.6,
+    roughness: 0.5,
+  });
+
+  const glassMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0x88ccff),
+    metalness: 0.95,
+    roughness: 0.05,
+    transparent: true,
+    opacity: 0.4,
+  });
+
+  const accentMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0x06b6d4),
+    emissive: new THREE.Color(0x06b6d4),
+    emissiveIntensity: 0.3,
     metalness: 0.8,
     roughness: 0.2,
   });
 
-  const wheelMaterial = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0x0f172a),
-    metalness: 0.5,
-    roughness: 0.6,
-  });
-
-  const glassMaterial = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0x06b6d4),
-    metalness: 0.9,
-    roughness: 0.1,
-    transparent: true,
-    opacity: 0.6,
-  });
-
-  const engineMaterial = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0x374151),
-    metalness: 0.7,
-    roughness: 0.4,
-  });
-
   return (
-    <group ref={groupRef}>
-      {/* Car Body - Main */}
-      <mesh name="body" position={[0, 0.4, 0]} material={bodyMaterial}>
-        <boxGeometry args={[1.8, 0.5, 4]} />
+    <group ref={groupRef} scale={0.8}>
+      {/* Main Body */}
+      <mesh position={[0, 0.35, 0]} material={bodyMaterial}>
+        <boxGeometry args={[1.8, 0.4, 4.2]} />
       </mesh>
 
-      {/* Car Body - Cabin */}
-      <mesh name="cabin" position={[0, 0.85, -0.3]} material={bodyMaterial}>
-        <boxGeometry args={[1.6, 0.5, 2]} />
+      {/* Cabin */}
+      <mesh position={[0, 0.7, -0.2]} material={bodyMaterial}>
+        <boxGeometry args={[1.6, 0.4, 2.2]} />
       </mesh>
 
       {/* Windshield */}
-      <mesh name="windshield" position={[0, 0.85, 0.8]} rotation={[0.3, 0, 0]} material={glassMaterial}>
-        <boxGeometry args={[1.4, 0.5, 0.05]} />
+      <mesh position={[0, 0.72, 0.9]} rotation={[0.4, 0, 0]} material={glassMaterial}>
+        <boxGeometry args={[1.5, 0.6, 0.05]} />
       </mesh>
 
       {/* Rear Window */}
-      <mesh name="rear_window" position={[0, 0.85, -1.4]} rotation={[-0.3, 0, 0]} material={glassMaterial}>
-        <boxGeometry args={[1.4, 0.4, 0.05]} />
+      <mesh position={[0, 0.72, -1.3]} rotation={[-0.4, 0, 0]} material={glassMaterial}>
+        <boxGeometry args={[1.5, 0.5, 0.05]} />
       </mesh>
 
-      {/* Engine Block */}
-      <mesh 
-        name="engine" 
-        position={[0, 0.5, 1.5]} 
-        material={isHighlighted('engine') ? highlightMaterial : engineMaterial}
-      >
-        <boxGeometry args={[1.2, 0.4, 0.8]} />
+      {/* Hood accent line */}
+      <mesh position={[0, 0.56, 1.2]} material={accentMaterial}>
+        <boxGeometry args={[0.1, 0.02, 1.5]} />
       </mesh>
 
-      {/* Radiator */}
+      {/* Engine area */}
       <mesh 
-        name="radiator" 
-        position={[0, 0.4, 1.95]} 
-        material={isHighlighted('radiator') ? highlightMaterial : engineMaterial}
+        position={[0, 0.45, 1.6]} 
+        material={isHighlighted('engine') ? highlightMaterial : bodyMaterial}
       >
-        <boxGeometry args={[1.4, 0.5, 0.1]} />
-      </mesh>
-
-      {/* Battery */}
-      <mesh 
-        name="battery" 
-        position={[0.5, 0.65, 1.3]} 
-        material={isHighlighted('battery') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0x1e40af })}
-      >
-        <boxGeometry args={[0.3, 0.25, 0.4]} />
+        <boxGeometry args={[1.4, 0.3, 0.8]} />
       </mesh>
 
       {/* Wheels */}
       {[
-        { name: 'wheel_fl', pos: [0.9, 0.2, 1.2] as [number, number, number] },
-        { name: 'wheel_fr', pos: [-0.9, 0.2, 1.2] as [number, number, number] },
-        { name: 'wheel_rl', pos: [0.9, 0.2, -1.2] as [number, number, number] },
-        { name: 'wheel_rr', pos: [-0.9, 0.2, -1.2] as [number, number, number] },
+        { name: 'wheel_fl', pos: [0.85, 0.18, 1.3] as [number, number, number], highlight: 'wheel_front' },
+        { name: 'wheel_fr', pos: [-0.85, 0.18, 1.3] as [number, number, number], highlight: 'wheel_front' },
+        { name: 'wheel_rl', pos: [0.85, 0.18, -1.3] as [number, number, number], highlight: 'wheel_rear' },
+        { name: 'wheel_rr', pos: [-0.85, 0.18, -1.3] as [number, number, number], highlight: 'wheel_rear' },
       ].map((wheel) => (
-        <mesh 
-          key={wheel.name}
-          name={wheel.name}
-          position={wheel.pos}
-          rotation={[0, 0, Math.PI / 2]}
-          material={isHighlighted(wheel.name) ? highlightMaterial : wheelMaterial}
-        >
-          <cylinderGeometry args={[0.3, 0.3, 0.2, 16]} />
-        </mesh>
+        <group key={wheel.name} position={wheel.pos}>
+          {/* Tire */}
+          <mesh rotation={[0, 0, Math.PI / 2]} material={isHighlighted(wheel.highlight) || isHighlighted('wheel') ? highlightMaterial : wheelMaterial}>
+            <cylinderGeometry args={[0.28, 0.28, 0.18, 24]} />
+          </mesh>
+          {/* Rim */}
+          <mesh rotation={[0, 0, Math.PI / 2]} material={accentMaterial}>
+            <cylinderGeometry args={[0.15, 0.15, 0.19, 12]} />
+          </mesh>
+        </group>
       ))}
 
-      {/* Brake Discs */}
+      {/* Brake discs */}
       {[
-        { name: 'brake_front_l', pos: [0.75, 0.2, 1.2] as [number, number, number] },
-        { name: 'brake_front_r', pos: [-0.75, 0.2, 1.2] as [number, number, number] },
-        { name: 'brake_rear_l', pos: [0.75, 0.2, -1.2] as [number, number, number] },
-        { name: 'brake_rear_r', pos: [-0.75, 0.2, -1.2] as [number, number, number] },
-      ].map((brake) => (
+        { pos: [0.72, 0.18, 1.3] as [number, number, number] },
+        { pos: [-0.72, 0.18, 1.3] as [number, number, number] },
+        { pos: [0.72, 0.18, -1.3] as [number, number, number] },
+        { pos: [-0.72, 0.18, -1.3] as [number, number, number] },
+      ].map((brake, i) => (
         <mesh 
-          key={brake.name}
-          name={brake.name}
+          key={i}
           position={brake.pos}
           rotation={[0, 0, Math.PI / 2]}
-          material={isHighlighted('brake') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0x6b7280 })}
+          material={isHighlighted('brake') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8 })}
         >
-          <cylinderGeometry args={[0.2, 0.2, 0.05, 16]} />
+          <cylinderGeometry args={[0.18, 0.18, 0.03, 16]} />
         </mesh>
       ))}
 
-      {/* Suspension Front */}
+      {/* Exhaust */}
       {[
-        { name: 'suspension_f_l', pos: [0.7, 0.35, 1.2] as [number, number, number] },
-        { name: 'suspension_f_r', pos: [-0.7, 0.35, 1.2] as [number, number, number] },
-      ].map((susp) => (
-        <mesh 
-          key={susp.name}
-          name={susp.name}
-          position={susp.pos}
-          material={isHighlighted('suspension_f') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0xf59e0b })}
+        { pos: [-0.4, 0.12, -2.1] as [number, number, number] },
+        { pos: [0.4, 0.12, -2.1] as [number, number, number] },
+      ].map((exhaust, i) => (
+        <mesh
+          key={i}
+          position={exhaust.pos}
+          rotation={[Math.PI / 2, 0, 0]}
+          material={isHighlighted('exhaust') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.9 })}
         >
-          <cylinderGeometry args={[0.05, 0.05, 0.3, 8]} />
+          <cylinderGeometry args={[0.06, 0.08, 0.15, 12]} />
         </mesh>
       ))}
-
-      {/* Suspension Rear */}
-      {[
-        { name: 'suspension_r_l', pos: [0.7, 0.35, -1.2] as [number, number, number] },
-        { name: 'suspension_r_r', pos: [-0.7, 0.35, -1.2] as [number, number, number] },
-      ].map((susp) => (
-        <mesh 
-          key={susp.name}
-          name={susp.name}
-          position={susp.pos}
-          material={isHighlighted('suspension_r') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0xf59e0b })}
-        >
-          <cylinderGeometry args={[0.05, 0.05, 0.3, 8]} />
-        </mesh>
-      ))}
-
-      {/* Exhaust System */}
-      <mesh 
-        name="exhaust" 
-        position={[-0.5, 0.1, -1.8]} 
-        rotation={[Math.PI / 2, 0, 0]}
-        material={isHighlighted('exhaust') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0x4b5563 })}
-      >
-        <cylinderGeometry args={[0.08, 0.1, 0.4, 8]} />
-      </mesh>
-
-      {/* Muffler */}
-      <mesh 
-        name="muffler" 
-        position={[0, 0.1, -1.5]} 
-        rotation={[Math.PI / 2, 0, 0]}
-        material={isHighlighted('muffler') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0x374151 })}
-      >
-        <cylinderGeometry args={[0.12, 0.12, 0.5, 8]} />
-      </mesh>
-
-      {/* Catalytic Converter */}
-      <mesh 
-        name="catalytic" 
-        position={[0, 0.15, -0.5]} 
-        rotation={[Math.PI / 2, 0, 0]}
-        material={isHighlighted('catalytic') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0x6b7280 })}
-      >
-        <cylinderGeometry args={[0.15, 0.15, 0.4, 8]} />
-      </mesh>
-
-      {/* Fuel Tank */}
-      <mesh 
-        name="fuel_tank" 
-        position={[0.5, 0.2, -0.8]} 
-        material={isHighlighted('fuel_tank') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0x1f2937 })}
-      >
-        <boxGeometry args={[0.6, 0.2, 0.8]} />
-      </mesh>
-
-      {/* Transmission */}
-      <mesh 
-        name="transmission" 
-        position={[0, 0.25, 0.5]} 
-        material={isHighlighted('transmission') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0x4b5563 })}
-      >
-        <boxGeometry args={[0.5, 0.3, 0.8]} />
-      </mesh>
 
       {/* Headlights */}
       {[
-        { name: 'headlight_l', pos: [0.6, 0.45, 1.98] as [number, number, number] },
-        { name: 'headlight_r', pos: [-0.6, 0.45, 1.98] as [number, number, number] },
-      ].map((light) => (
-        <mesh 
-          key={light.name}
-          name={light.name}
+        { pos: [0.6, 0.4, 2.08] as [number, number, number] },
+        { pos: [-0.6, 0.4, 2.08] as [number, number, number] },
+      ].map((light, i) => (
+        <mesh
+          key={i}
           position={light.pos}
-          material={isHighlighted('headlight') ? highlightMaterial : new THREE.MeshStandardMaterial({ 
+          material={isHighlighted('headlight') ? highlightMaterial : new THREE.MeshStandardMaterial({
             color: 0xffffff,
-            emissive: 0xffffcc,
-            emissiveIntensity: 0.3 
+            emissive: 0xffffee,
+            emissiveIntensity: 0.5
           })}
         >
-          <sphereGeometry args={[0.12, 16, 16]} />
+          <boxGeometry args={[0.3, 0.12, 0.02]} />
         </mesh>
       ))}
 
       {/* Taillights */}
       {[
-        { name: 'taillight_l', pos: [0.7, 0.45, -1.98] as [number, number, number] },
-        { name: 'taillight_r', pos: [-0.7, 0.45, -1.98] as [number, number, number] },
-      ].map((light) => (
-        <mesh 
-          key={light.name}
-          name={light.name}
+        { pos: [0.65, 0.4, -2.08] as [number, number, number] },
+        { pos: [-0.65, 0.4, -2.08] as [number, number, number] },
+      ].map((light, i) => (
+        <mesh
+          key={i}
           position={light.pos}
-          material={isHighlighted('taillight') ? highlightMaterial : new THREE.MeshStandardMaterial({ 
+          material={isHighlighted('taillight') ? highlightMaterial : new THREE.MeshStandardMaterial({
             color: 0xff0000,
             emissive: 0xff0000,
-            emissiveIntensity: 0.2 
+            emissiveIntensity: 0.4
           })}
         >
-          <boxGeometry args={[0.2, 0.1, 0.02]} />
+          <boxGeometry args={[0.25, 0.1, 0.02]} />
+        </mesh>
+      ))}
+
+      {/* Suspension springs (visible) */}
+      {[
+        { pos: [0.7, 0.28, 1.3] as [number, number, number], type: 'front' },
+        { pos: [-0.7, 0.28, 1.3] as [number, number, number], type: 'front' },
+        { pos: [0.7, 0.28, -1.3] as [number, number, number], type: 'rear' },
+        { pos: [-0.7, 0.28, -1.3] as [number, number, number], type: 'rear' },
+      ].map((susp, i) => (
+        <mesh
+          key={i}
+          position={susp.pos}
+          material={isHighlighted('suspension') ? highlightMaterial : new THREE.MeshStandardMaterial({ color: 0xf59e0b })}
+        >
+          <cylinderGeometry args={[0.03, 0.03, 0.2, 8]} />
         </mesh>
       ))}
     </group>
   );
 }
+
+// Preload the model
+useGLTF.preload("https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/low-poly-car/model.gltf");
 
 interface CarViewer3DProps {
   highlightedZone?: VehicleZone;
@@ -358,14 +467,18 @@ const CarViewer3D = ({
   result,
   visualContext,
 }: CarViewer3DProps) => {
+  const controlsRef = useRef<any>(null);
+  const [modelNodes, setModelNodes] = useState<Record<string, any> | null>(null);
+  
   // Determine target camera view
   const targetView = carView || 'lateral';
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full bg-gradient-to-b from-slate-900 via-slate-950 to-black">
       {/* View Badge */}
       <div className="absolute top-4 left-4 z-10">
-        <Badge variant="secondary" className="bg-secondary/80 backdrop-blur-sm">
+        <Badge variant="secondary" className="bg-secondary/80 backdrop-blur-sm border border-primary/20">
+          <span className="text-primary mr-1">●</span>
           Vista 3D: {targetView}
         </Badge>
       </div>
@@ -373,79 +486,90 @@ const CarViewer3D = ({
       {/* Zone indicator */}
       {highlightZoneId && (
         <div className="absolute top-4 right-4 z-10">
-          <Badge className="bg-destructive/80 text-destructive-foreground backdrop-blur-sm animate-pulse">
-            {highlightZoneId.replace('zone_', '').replace(/_/g, ' ')}
+          <Badge className="bg-destructive/90 text-destructive-foreground backdrop-blur-sm animate-pulse border border-destructive">
+            ⚠️ {highlightZoneId.replace('zone_', '').replace(/_/g, ' ')}
           </Badge>
         </div>
       )}
 
-      {/* 3D Canvas */}
-      <Canvas shadows className="w-full h-full bg-gradient-to-b from-slate-900 to-slate-950">
+      {/* 3D Canvas with improved settings */}
+      <Canvas
+        shadows
+        dpr={[1, 2]}
+        camera={{ fov: 45, position: [4, 2, 5], near: 0.1, far: 100 }}
+        gl={{ 
+          antialias: true,
+          alpha: true,
+          powerPreference: "high-performance"
+        }}
+        onCreated={({ gl }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.2;
+        }}
+      >
         <Suspense fallback={<Loader />}>
-          {/* Camera */}
-          <PerspectiveCamera makeDefault position={[4, 2, 4]} fov={50} />
-          <CameraController targetView={targetView} />
+          {/* Camera controller for smooth transitions */}
+          <CameraController targetView={targetView} controlsRef={controlsRef} />
 
-          {/* Lighting */}
-          <ambientLight intensity={0.4} />
-          <directionalLight 
-            position={[5, 5, 5]} 
-            intensity={1} 
-            castShadow 
-            shadow-mapSize={[1024, 1024]}
-          />
-          <directionalLight position={[-5, 3, -5]} intensity={0.5} />
-          <spotLight 
-            position={[0, 10, 0]} 
-            angle={0.3} 
-            penumbra={1} 
-            intensity={0.5} 
-            castShadow 
-          />
+          {/* Stage provides studio lighting and environment */}
+          <Stage
+            intensity={1.5}
+            environment="city"
+            shadows={{ type: 'contact', opacity: 0.4, blur: 2 }}
+            adjustCamera={false}
+          >
+            <CarModel 
+              highlightZoneId={highlightZoneId}
+              onModelLoaded={setModelNodes}
+            />
+          </Stage>
 
-          {/* Environment for reflections */}
-          <Environment preset="city" />
-
-          {/* Ground shadow */}
-          <ContactShadows 
-            position={[0, -0.01, 0]} 
-            opacity={0.4} 
-            scale={10} 
-            blur={2} 
-            far={10} 
-          />
-
-          {/* Ground plane */}
+          {/* Ground reflection plane */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-            <planeGeometry args={[20, 20]} />
-            <meshStandardMaterial color="#0f172a" metalness={0.3} roughness={0.8} />
+            <planeGeometry args={[50, 50]} />
+            <meshStandardMaterial 
+              color="#0a0a0f" 
+              metalness={0.95} 
+              roughness={0.1}
+              envMapIntensity={0.5}
+            />
           </mesh>
 
-          {/* Grid helper */}
-          <gridHelper args={[20, 40, "#1e293b", "#1e293b"]} position={[0, 0, 0]} />
-
-          {/* Car Model */}
-          <PlaceholderCar highlightZoneId={highlightZoneId} />
-
-          {/* Controls */}
-          <OrbitControls 
-            enablePan={true}
+          {/* Orbit Controls with proper constraints */}
+          <OrbitControls
+            ref={controlsRef}
+            makeDefault
+            enablePan={false}
             enableZoom={true}
             enableRotate={true}
-            minDistance={2}
-            maxDistance={15}
-            maxPolarAngle={Math.PI * 0.85}
+            minPolarAngle={0.2}
+            maxPolarAngle={Math.PI / 1.9}
+            minDistance={3}
+            maxDistance={10}
             target={[0, 0.5, 0]}
+            dampingFactor={0.05}
+            enableDamping={true}
           />
         </Suspense>
       </Canvas>
 
       {/* Instructions overlay */}
       <div className="absolute bottom-4 left-4 z-10">
-        <div className="text-xs text-muted-foreground bg-background/60 backdrop-blur-sm px-2 py-1 rounded">
-          🖱️ Arraste para rotacionar • Scroll para zoom
+        <div className="flex items-center gap-4 text-xs text-muted-foreground bg-background/60 backdrop-blur-sm px-3 py-2 rounded-lg border border-border/50">
+          <span>🖱️ Arrastar: Rotacionar</span>
+          <span className="text-border">|</span>
+          <span>🔍 Scroll: Zoom</span>
         </div>
       </div>
+
+      {/* Model info (debug) */}
+      {modelNodes && Object.keys(modelNodes).length > 0 && (
+        <div className="absolute bottom-4 right-4 z-10">
+          <Badge variant="outline" className="text-[10px] bg-background/60 backdrop-blur-sm">
+            {Object.keys(modelNodes).length} meshes carregadas
+          </Badge>
+        </div>
+      )}
     </div>
   );
 };
