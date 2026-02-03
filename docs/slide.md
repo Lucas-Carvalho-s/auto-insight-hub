@@ -51,6 +51,11 @@ Prof: Filipe Calegário
 
 ---
 
+# Ferramentas utilizadas (IA)
+![alt text](image-1.png)
+
+---
+
 # Casos de teste
 
 **Caminho Padrão**
