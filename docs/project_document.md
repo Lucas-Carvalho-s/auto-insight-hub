@@ -15,7 +15,7 @@
 - Estudar, o mínimo possível, as ferramentas a serem utilizadas antes de, de fato, utilizar. O trabalho de aprender enquanto faz, pode, em alguns casos, não ser interessante, pois há sempre um *trade-off* entre qualidade e tempo.
 ## 5. uma lição para levar para a vida profissional
 
-### Izaac Morais
+### Izaac Moraes
 >A IA atuou como um excelente assistente de desenvolvimento rápido, porém a estabilidade e a qualidade do software dependem inteiramente das decisões humanas.
 A evolução de algumas partes do projeto — especialmente a interface de front-end — só foi possível porque assumimos o controle do código gerado, definindo com precisão o comportamento esperado dos componentes.
 A IA gera código, mas é o engenheiro quem valida, garante a coerência e a confiabilidade do que está sendo produzido.
