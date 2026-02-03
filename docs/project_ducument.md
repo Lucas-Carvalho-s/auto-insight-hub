@@ -325,23 +325,24 @@ Abaixo estão as capturas de tela comprovando a execução bem-sucedida dos cen�
 
 ### T01: Fluxo Feliz (Caminho Padrão)
 *Demonstra o funcionamento completo: Input -> Processamento -> Diagnóstico RAG -> Visualização 3D -> Identificação da Peça.*
-<img src="docs/screenshots/Teste 01 Fluxo Feliz (Caminho Padrão).png" width="800" alt="Teste 01 Fluxo Feliz">
+<img src="docs/screenshots/teste01.png" width="800" alt="Teste 01 Fluxo Feliz">
 
 ### T02: Tratamento de Erro - Falta de Informação
 *Validação de formulário impedindo envio de inputs vazios.*
-<img src="docs/screenshots/Teste 02 Tratamento de Erro - Falta de Informação.png" width="800" alt="Teste 02 Input Vazio">
+<img src="docs/screenshots/teste02.png" width="800" alt="Teste 02 Input Vazio">
 
 ### T03: Tratamento de Erro - Fora de Contexto
 *Demonstração do Guardrail de IA recusando perguntas fora do escopo automotivo.*
-<img src="docs/screenshots/Teste 03 Tratamento de Erro - Fora de Contexto.png" width="800" alt="Teste 03 Fora de Contexto">
+<img src="docs/screenshots/teste03.png" width="800" alt="Teste 03 Fora de Contexto">
 
 ### T04: Tratamento de Erro - Falha de Rede
 *Teste de resiliência simulando desconexão (Offline Mode) via DevTools.*
-<img src="docs/screenshots/Teste 04 Tratamento de Erro - Falha de Rede.png" width="800" alt="Teste 04 Falha de Rede">
+<img src="docs/screenshots/teste04.png" width="800" alt="Teste 04 Falha de Rede">
 
 ### T05: Validação do RAG (Fonte de Dados)
 *Confirmação de que o sistema está lendo corretamente os manuais técnicos (PDFs) carregados no Assistente.*
-<img src="docs/screenshots/Teste 05 Validação do RAG (Fonte de Dados).png" width="800" alt="Teste 05 RAG">
+<img src="docs/screenshots/teste05.png" width="800" alt="Teste 05 RAG">
+
 ```
 ```
 
