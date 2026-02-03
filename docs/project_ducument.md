@@ -259,12 +259,92 @@ O código foi gerado e modificado pela ferramenta _lovable_.
 ### Output
 O link de acesso ao repositório do projeto é: https://github.com/izaacmoraes/auto-insight-hub/tree/main
 
-## Testes
-**Ferramenta utilizada**:
-### Prompt
+
 ```
 ```
-### Output
+# 🛡️ Relatório de Resiliência, Testes e Validação
+
+Este documento detalha a etapa de "Hardening" (fortalecimento) do sistema **Auto-Insight Hub**. O objetivo foi transformar o protótipo funcional em uma aplicação robusta, implementando tratamento de erros no Back-end (Edge Functions), feedback visual no Front-end e validação através de cenários de teste reais.
+
+## 1. Engenharia de Prompt para Implementação
+
+Abaixo estão os prompts técnicos utilizados no **Lovable** para gerar a infraestrutura de tratamento de erros e a lógica de negócios.
+
+### 1.1. Robustez do Back-end (Supabase Edge Function)
+**Objetivo:** Garantir que a comunicação com a OpenAI retorne códigos HTTP adequados e trate exceções de forma graciosa.
+
+> **Prompt Utilizado:**
+> ```markdown
+> Gostaria de implementar um tratamento de erros robusto na Supabase Edge Function que se comunica com a OpenAI.
+> Por favor, refatore a função para incluir blocos `try-catch` em todas as etapas críticas:
+> 1. Validação de Input (Status 400).
+> 2. Tratamento de Erro na OpenAI (Status 502/500).
+> 3. Tratamento de JSON malformado (Fallback seguro).
+> 4. Garantia de Headers CORS.
+> ```
+
+### 1.2. Resiliência do Front-end e Feedback de UX
+**Objetivo:** Impedir "telas brancas" (crashes) e fornecer feedback visual claro ao usuário sobre o estado do sistema.
+
+> **Prompt Utilizado:**
+> ```markdown
+> Vamos melhorar a robustez do Frontend (React):
+> 1. Toasts de Notificação: Exibir alertas vermelhos em erros 4xx/5xx ou falha de rede.
+> 2. Error Boundary: Envolver o componente 3D para evitar crash da página em falha de WebGL.
+> 3. Loading States: Desabilitar botão e mostrar spinner durante requisições.
+> ```
+
+---
+
+## 2. Roteiro de Testes de Sistema (QA)
+
+Abaixo encontra-se o plano de testes manuais executado para validar as implementações acima e as regras de negócio do Agente de IA.
+
+| ID | Cenário de Teste | Ação Executada | Resultado Esperado | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **T01** | **Fluxo Feliz (Caminho Padrão)** | Enviar sintoma veicular válido (ex: "Pneu murcho"). | 1. Loading ativo.<br>2. Resposta RAG/LLM formatada.<br>3. Carro 3D foca na peça correta.<br>4. Pop-up exibe imagem da peça. | ✅ Aprovado |
+| **T02** | **Tratamento de Erro (Falta de Info)** | Tentar enviar mensagem vazia. | Botão desabilitado ou alerta de validação. Nenhuma requisição enviada ao servidor. | ✅ Aprovado |
+| **T03** | **Tratamento de Erro (Fora de Contexto)** | Perguntar sobre tema não-veicular (ex: Receita). | Agente recusa educadamente e não altera o contexto visual 3D. | ✅ Aprovado |
+| **T04** | **Tratamento de Erro (Falha de Rede)** | Simular "Offline" no DevTools e enviar mensagem. | Toast vermelho de "Erro de conexão" aparece. App não trava. | ✅ Aprovado |
+| **T05** | **Validação do RAG (Fonte de Dados)** | Perguntar dado exclusivo do manual PDF. | Citação explícita: "🔍 Fonte: Banco de Dados Interno" com dados técnicos precisos. | ✅ Aprovado |
+
+---
+
+## 3. Testes Automatizados (Unitários)
+
+Para garantir a integridade do parser de dados, foi gerado um arquivo de teste unitário.
+
+* **Arquivo:** `src/utils/jsonParser.test.ts`
+* **Cobertura:** Parsing de JSON válido, extração de JSON misturado com texto e tratamento de JSON malformado.
+
+---
+
+## 4. Evidências Visuais (Screenshots)
+
+Abaixo estão as capturas de tela comprovando a execução bem-sucedida dos cenários de teste listados na seção 2.
+
+### T01: Fluxo Feliz (Caminho Padrão)
+*Demonstra o funcionamento completo: Input -> Processamento -> Diagnóstico RAG -> Visualização 3D -> Identificação da Peça.*
+<img src="docs/screenshots/Teste 01 Fluxo Feliz (Caminho Padrão).png" width="800" alt="Teste 01 Fluxo Feliz">
+
+### T02: Tratamento de Erro - Falta de Informação
+*Validação de formulário impedindo envio de inputs vazios.*
+<img src="docs/screenshots/Teste 02 Tratamento de Erro - Falta de Informação.png" width="800" alt="Teste 02 Input Vazio">
+
+### T03: Tratamento de Erro - Fora de Contexto
+*Demonstração do Guardrail de IA recusando perguntas fora do escopo automotivo.*
+<img src="docs/screenshots/Teste 03 Tratamento de Erro - Fora de Contexto.png" width="800" alt="Teste 03 Fora de Contexto">
+
+### T04: Tratamento de Erro - Falha de Rede
+*Teste de resiliência simulando desconexão (Offline Mode) via DevTools.*
+<img src="docs/screenshots/Teste 04 Tratamento de Erro - Falha de Rede.png" width="800" alt="Teste 04 Falha de Rede">
+
+### T05: Validação do RAG (Fonte de Dados)
+*Confirmação de que o sistema está lendo corretamente os manuais técnicos (PDFs) carregados no Assistente.*
+<img src="docs/screenshots/Teste 05 Validação do RAG (Fonte de Dados).png" width="800" alt="Teste 05 RAG">
+```
+```
+
 
 ## Documentação
 **Ferramenta utilizada** Codex:
