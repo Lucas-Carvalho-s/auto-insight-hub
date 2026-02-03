@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Cpu, Send, Sparkles, RotateCcw } from "lucide-react";
+import { Cpu, Send, Sparkles, RotateCcw, Loader2 } from "lucide-react";
 import ProcessingStepper from "./ProcessingStepper";
 import { DiagnosticResult } from "@/data/diagnosticData";
 import { cn } from "@/lib/utils";
@@ -97,10 +97,19 @@ const SymptomInput = ({ onAnalyze, onReset, isProcessing, result, className }: S
           <Button 
             onClick={handleSubmit}
             disabled={isProcessing}
-            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 glow-cyan-sm transition-all duration-300 hover:glow-cyan"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 glow-cyan-sm transition-all duration-300 hover:glow-cyan disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            <Send className="w-4 h-4 mr-2" />
-            Diagnosticar
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Analisando...
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4 mr-2" />
+                Diagnosticar
+              </>
+            )}
           </Button>
           <p className="text-xs text-muted-foreground text-center">
             Pressione Ctrl+Enter para enviar
