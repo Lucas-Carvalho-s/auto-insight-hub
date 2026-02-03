@@ -4,12 +4,85 @@ import { Button } from "@/components/ui/button";
 import SymptomInput from "./SymptomInput";
 import SmartVehicleViewer from "./SmartVehicleViewer";
 import DiagnosisResult from "./DiagnosisResult";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import Viewer3DErrorFallback from "./Viewer3DErrorFallback";
 import { DiagnosticResult, VehicleZone, analyzeSymptopm } from "@/data/diagnosticData";
 import { CarView, HighlightZoneId, VisualContext } from "@/data/partImagesMap";
 import { parseAIResponse, mapHighlightZoneToLegacy } from "@/utils/aiResponseParser";
 import { Toaster } from "@/components/ui/toaster";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+
+// Error codes from the backend
+interface ApiError {
+  error: string;
+  details?: string;
+  code?: string;
+}
+
+// Helper to get user-friendly error messages
+function getErrorMessage(error: ApiError): { title: string; description: string } {
+  const code = error.code || '';
+  
+  switch (code) {
+    case 'MISSING_MESSAGE':
+    case 'EMPTY_MESSAGE':
+      return {
+        title: 'Mensagem inválida',
+        description: error.error
+      };
+    case 'MESSAGE_TOO_LONG':
+      return {
+        title: 'Mensagem muito longa',
+        description: 'Por favor, reduza o tamanho da sua descrição.'
+      };
+    case 'CONFIG_ERROR':
+      return {
+        title: 'Erro de configuração',
+        description: 'O serviço de IA não está configurado corretamente.'
+      };
+    case 'OPENAI_AUTH_ERROR':
+      return {
+        title: 'Erro de autenticação',
+        description: 'Problema na comunicação com o serviço de IA.'
+      };
+    case 'OPENAI_RATE_LIMIT':
+      return {
+        title: 'Serviço ocupado',
+        description: 'Muitas requisições. Aguarde alguns segundos e tente novamente.'
+      };
+    case 'OPENAI_SERVICE_ERROR':
+    case 'OPENAI_CONNECTION_ERROR':
+      return {
+        title: 'Serviço indisponível',
+        description: 'O serviço de IA está temporariamente indisponível. Tente novamente.'
+      };
+    case 'DIAGNOSIS_TIMEOUT':
+      return {
+        title: 'Tempo esgotado',
+        description: 'A análise demorou muito. Tente uma descrição mais simples.'
+      };
+    case 'DIAGNOSIS_FAILED':
+    case 'DIAGNOSIS_CANCELLED':
+    case 'DIAGNOSIS_EXPIRED':
+      return {
+        title: 'Falha na análise',
+        description: error.details || 'Ocorreu um erro durante o diagnóstico.'
+      };
+    case 'OPENAI_INVALID_RESPONSE':
+    case 'NO_ASSISTANT_RESPONSE':
+    case 'EMPTY_ASSISTANT_RESPONSE':
+      return {
+        title: 'Resposta inválida',
+        description: 'O assistente não conseguiu gerar uma resposta válida.'
+      };
+    default:
+      return {
+        title: 'Erro no diagnóstico',
+        description: error.error || 'Ocorreu um erro inesperado.'
+      };
+  }
+}
 
 const DiagnosticDashboard = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -47,14 +120,52 @@ const DiagnosticDashboard = () => {
 
       console.log('[DiagnosticDashboard] Resposta da Edge Function:', { data, error });
 
+      // Handle Supabase function invoke errors (network, CORS, etc.)
       if (error) {
         console.error('[DiagnosticDashboard] Erro na Edge Function:', error);
-        throw new Error(error.message || 'Erro ao chamar o serviço de diagnóstico');
+        
+        // Check if it's a network error
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+          toast({
+            variant: "destructive",
+            title: "Sem conexão",
+            description: "Verifique sua conexão com a internet e tente novamente.",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Erro de conexão",
+            description: error.message || 'Não foi possível conectar ao servidor.',
+          });
+        }
+        
+        // Fallback to local analysis
+        handleLocalFallback(symptom);
+        return;
       }
 
+      // Handle API-level errors returned in the response body
       if (data?.error) {
-        console.error('[DiagnosticDashboard] Erro retornado pelo backend:', data.error);
-        throw new Error(data.error);
+        console.error('[DiagnosticDashboard] Erro retornado pelo backend:', data);
+        
+        const errorInfo = getErrorMessage(data as ApiError);
+        
+        toast({
+          variant: "destructive",
+          title: errorInfo.title,
+          description: errorInfo.description,
+        });
+
+        // Show details in console for debugging
+        if (data.details) {
+          console.error('[DiagnosticDashboard] Detalhes:', data.details);
+        }
+        
+        // For some errors, we can still fallback to local
+        if (['OPENAI_SERVICE_ERROR', 'OPENAI_CONNECTION_ERROR', 'DIAGNOSIS_TIMEOUT'].includes(data.code || '')) {
+          handleLocalFallback(symptom);
+        }
+        return;
       }
 
       // Save threadId for future conversations
@@ -152,28 +263,42 @@ const DiagnosticDashboard = () => {
     } catch (error) {
       console.error('[DiagnosticDashboard] Erro durante análise:', error);
       
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      
-      toast({
-        variant: "destructive",
-        title: "Erro no Diagnóstico",
-        description: `Falha ao consultar o assistente: ${errorMessage}`,
-      });
-
-      // Fallback to local analysis
-      console.log('[DiagnosticDashboard] Usando fallback local...');
-      const localResult = analyzeSymptopm(symptom);
-      if (localResult) {
-        setResult(localResult);
-        setHighlightedZone(localResult.zona);
+      // Check for specific error types
+      if (error instanceof TypeError && error.message.includes('fetch')) {
         toast({
-          title: "Diagnóstico Local",
-          description: "Usando base de dados local como fallback.",
+          variant: "destructive",
+          title: "Sem conexão",
+          description: "Verifique sua conexão com a internet e tente novamente.",
+        });
+      } else {
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        
+        toast({
+          variant: "destructive",
+          title: "Erro inesperado",
+          description: errorMessage,
         });
       }
+
+      // Fallback to local analysis
+      handleLocalFallback(symptom);
     } finally {
       setIsProcessing(false);
       console.log('[DiagnosticDashboard] Análise finalizada');
+    }
+  };
+
+  // Helper function for local fallback
+  const handleLocalFallback = (symptom: string) => {
+    console.log('[DiagnosticDashboard] Usando fallback local...');
+    const localResult = analyzeSymptopm(symptom);
+    if (localResult) {
+      setResult(localResult);
+      setHighlightedZone(localResult.zona);
+      toast({
+        title: "Diagnóstico Local",
+        description: "Usando base de dados local como fallback.",
+      });
     }
   };
 
@@ -295,19 +420,31 @@ const DiagnosticDashboard = () => {
             />
           </div>
 
-          {/* Center Panel - 2D Vehicle Viewer */}
+          {/* Center Panel - 2D Vehicle Viewer with Error Boundary */}
           <div className="lg:col-span-5 order-1 lg:order-2">
-            <div className="glass border-border/50 rounded-xl h-[450px] lg:h-full overflow-hidden">
-              <SmartVehicleViewer 
-                highlightedZone={highlightedZone}
-                highlightZoneId={highlightZoneId}
-                carView={currentCarView}
-                onZoneClick={handleZoneClick}
-                onZoneIdClick={handleZoneIdClick}
-                result={result}
-                visualContext={visualContext}
-              />
-            </div>
+            <ErrorBoundary 
+              fallback={<Viewer3DErrorFallback />}
+              onError={(error) => {
+                console.error('[DiagnosticDashboard] Viewer error:', error);
+                toast({
+                  variant: "destructive",
+                  title: "Erro no Visualizador",
+                  description: "O visualizador encontrou um problema. Usando fallback visual.",
+                });
+              }}
+            >
+              <div className="glass border-border/50 rounded-xl h-[450px] lg:h-full overflow-hidden">
+                <SmartVehicleViewer 
+                  highlightedZone={highlightedZone}
+                  highlightZoneId={highlightZoneId}
+                  carView={currentCarView}
+                  onZoneClick={handleZoneClick}
+                  onZoneIdClick={handleZoneIdClick}
+                  result={result}
+                  visualContext={visualContext}
+                />
+              </div>
+            </ErrorBoundary>
           </div>
 
           {/* Right Panel - Results */}
